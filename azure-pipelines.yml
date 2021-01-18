@@ -4,8 +4,6 @@ resources:
      type: github
      endpoint: boarder2
      name: boarder2/shacknews-discord-auth-bot
-     trigger: 
-     - main
 
 variables:
   buildVersion: "1.0.0.1"
