@@ -1,0 +1,27 @@
+variables:
+  buildVersion: "1.0.0.1"
+
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- checkout: self
+- task: Docker@1
+  displayName: Build
+  inputs:
+    containerregistrytype: 'Container Registry'
+    dockerRegistryEndpoint: 'Docker Hub'
+    arguments: '--build-arg BUILD_VERSION=$(buildVersion)'
+    imageName: 'boarder2/shacknews-discord-auth-bot:$(buildVersion)-SNAPSHOT'
+
+- task: Docker@1
+  displayName: Publish
+  inputs:
+    containerregistrytype: 'Container Registry'
+    dockerRegistryEndpoint: 'Docker Hub'
+    command: 'Push an image'
+    imageName: 'boarder2/shacknews-discord-auth-bot:$(buildVersion)-SNAPSHOT'
+
