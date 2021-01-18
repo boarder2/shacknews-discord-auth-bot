@@ -133,10 +133,11 @@ namespace shacknews_discord_auth_bot
                 var guild = request.User.Guild;
                 var rolesToAssign = guild.Roles.Where(r => _rolesToAssign.Contains(r.Name));
                 var rolesToUnasign = guild.Roles.Where(r => _rolesToUnasign.Contains(r.Name));
-                _logger.LogInformation($"Assigning roles for {message.Author}{Environment.NewLine}Adding: {rolesToAssign}{Environment.NewLine}Removing: {rolesToUnasign}{Environment.NewLine}AllRoles: {guild.Roles.ToString()}");
+                _logger.LogInformation($"Assigning roles for {message.Author}");
                 await request.User.AddRolesAsync(rolesToAssign);
                 await request.User.RemoveRolesAsync(rolesToUnasign);
                 await message.Channel.SendMessageAsync($"Verification succeded!");
+                _logger.LogInformation($"Verification success for {message.Author}");
             }
             catch (Exception e)
             {
