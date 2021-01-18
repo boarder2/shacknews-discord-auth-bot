@@ -8,7 +8,7 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
-- checkout:
+- checkout: self
 - task: Docker@1
   displayName: Build
   inputs:
