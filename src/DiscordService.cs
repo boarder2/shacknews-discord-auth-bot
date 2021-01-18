@@ -43,16 +43,17 @@ namespace shacknews_discord_auth_bot
             _client.MessageReceived += GotAMessage;
             _client.Ready += () =>
             {
-                Console.WriteLine($"Logged in as {_client.CurrentUser.Username}");
+                _logger.LogInformation($"Logged in as {_client.CurrentUser.Username}");
                 return Task.CompletedTask;
             };
 
-            var token = _config.GetValue<string>("SHACK_DISCORD_AUTH_BOT_TOKEN");
-            _rolesToAssign = _config.GetValue<string>("SHACK_DISCORD_AUTH_BOT_ROLLS_TO_ASSIGN", "Shacker").Split(";");
-            _rolesToUnasign = _config.GetValue<string>("SHACK_DISCORD_AUTH_BOT_ROLLS_TO_REMOVE", "Stillnewb;Guest").Split(";");
-            _authChannelName = _config.GetValue<string>("SHACK_DISCORD_AUTH_BOT_CHANNEL_NAME", "help-and-requests");
+            var token = _config.GetValue<string>("DISCORD_TOKEN");
+            _rolesToAssign = _config.GetValue<string>("ROLLS_TO_ASSIGN", "Shacker").Split(";");
+            _rolesToUnasign = _config.GetValue<string>("ROLLS_TO_REMOVE", "Stillnewb;Guest").Split(";");
+            _authChannelName = _config.GetValue<string>("CHANNEL_NAME", "help-and-requests");
 
-            Console.WriteLine($"Logging in with token {token}");
+            _logger.LogInformation($"Bot v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString()} starting...");
+            _logger.LogInformation($"Logging in with token {token}");
             await _client.LoginAsync(TokenType.Bot, token);
             await _client.StartAsync();
 
@@ -79,11 +80,15 @@ namespace shacknews_discord_auth_bot
 
                 if (message.Channel.Name.Equals(_authChannelName))
                 {
-                    Console.WriteLine($"{message.Channel}: {message.Author}: {message.ToString()}");
+                    _logger.LogTrace($"{message.Channel}: {message.Author}: {message.ToString()}");
                     if (message.Content.StartsWith("!verify "))
                     {
                         await SendAuthMessage(message);
                         return;
+                    }
+                    else if (message.Content.Equals("!help"))
+                    {
+                        await message.Channel.SendMessageAsync("I can do the following things:\r\n`!verify <ShacknewsUsername>` - Begin the verification process.\r\n`!help` - Show this message.");
                     }
                 }
                 else if (message.Channel.Name.StartsWith("@"))
@@ -94,7 +99,14 @@ namespace shacknews_discord_auth_bot
                     }
                     else
                     {
-                        await message.Channel.SendMessageAsync($"I cannot handle requests directly. Use the `!verify` command on the server you want to verify your account with.");
+                        if (message.ToString().Equals("!version"))
+                        {
+                            await message.Channel.SendMessageAsync(System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString());
+                        }
+                        else
+                        {
+                            await message.Channel.SendMessageAsync($"I cannot handle requests directly. Use the `!verify` command on the server you want to verify your account with.");
+                        }
                     }
                 }
             }

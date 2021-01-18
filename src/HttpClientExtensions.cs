@@ -16,11 +16,14 @@ namespace shacknews_discord_auth_bot
             var localContent = new List<KeyValuePair<string, string>>(content);
             if (sendAuth)
             {
+                var user = configuration.GetValue<string>("MESSAGE_USERNAME");
+                var pass = configuration.GetValue<string>("MESSAGE_PASSWORD");
+                //Console.WriteLine($"Sending reqeust with auth for user {user} and password {pass}");
                 localContent.AddRange(new[]
                 {
-                        new KeyValuePair<string, string>("username", configuration.GetValue<string>("SHACK_DISCORD_AUTH_BOT_MESSAGE_USERNAME")),
-                        new KeyValuePair<string, string>("password", configuration.GetValue<string>("SHACK_DISCORD_AUTH_BOT_MESSAGE_PASSWORD"))
-                    });
+                    new KeyValuePair<string, string>("username", user),
+                    new KeyValuePair<string, string>("password", pass)
+                });
             }
 
             // //Winchatty seems to crap itself if the Expect: 100-continue header is there.
