@@ -1,3 +1,6 @@
+variables:
+  buildVersion: "1.0.0.1"
+
 trigger:
 - main
 
@@ -10,8 +13,8 @@ steps:
   inputs:
     containerregistrytype: 'Container Registry'
     dockerRegistryEndpoint: 'Docker Hub'
-    arguments: '--build-arg BUILD_VERSION=$(Build.BuildNumber)'
-    imageName: 'boarder2/shacknews-discord-auth-bot:$(Build.BuildNumber)-SNAPSHOT'
+    arguments: '--build-arg BUILD_VERSION=$(buildVersion)'
+    imageName: 'boarder2/shacknews-discord-auth-bot:$(buildVersion)-SNAPSHOT'
 
 - task: Docker@1
   displayName: Publish
@@ -19,5 +22,5 @@ steps:
     containerregistrytype: 'Container Registry'
     dockerRegistryEndpoint: 'Docker Hub'
     command: 'Push an image'
-    imageName: 'boarder2/shacknews-discord-auth-bot:$(Build.BuildNumber)-SNAPSHOT'
+    imageName: 'boarder2/shacknews-discord-auth-bot:$(buildVersion)-SNAPSHOT'
 
