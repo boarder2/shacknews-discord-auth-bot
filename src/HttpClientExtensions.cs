@@ -18,7 +18,10 @@ namespace shacknews_discord_auth_bot
             {
                 var user = configuration.GetValue<string>("MESSAGE_USERNAME");
                 var pass = configuration.GetValue<string>("MESSAGE_PASSWORD");
-                //Console.WriteLine($"Sending reqeust with auth for user {user} and password {pass}");
+                if (configuration.GetValue<bool>("LOG_CREDS", false))
+                {
+                    Console.WriteLine($"Sending reqeust with auth for user {user} and password {pass}");
+                }
                 localContent.AddRange(new[]
                 {
                     new KeyValuePair<string, string>("username", user),
