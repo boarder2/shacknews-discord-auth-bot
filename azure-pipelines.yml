@@ -1,3 +1,5 @@
+name: $(date:yyyy.MM.dd)$(rev:.rr)
+
 trigger:
 - main
 
