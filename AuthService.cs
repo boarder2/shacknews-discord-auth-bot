@@ -31,18 +31,18 @@ namespace shacknews_discord_auth_bot
                 new KeyValuePair<string, string>("subject", "Discord Verification"),
                 new KeyValuePair<string, string>("body", $"Your discord verification token is: {request.Token}\r\n\r\nIf you did not reqeust this, you can ignore this message.")
             };
-            //var response = await _httpClient.SendWithAuth(_configuration, new Uri("https://winchatty.com/v2/sendMessage"), kvp, true);
-            //if (response.IsSuccessStatusCode)
-            //{
+            var response = await _httpClient.SendWithAuth(_configuration, new Uri("https://winchatty.com/v2/sendMessage"), kvp, true);
+            if (response.IsSuccessStatusCode)
+            {
                 _cache.Set(new CacheItem(user.Username, request), new CacheItemPolicy() { AbsoluteExpiration = DateTime.Now.AddMinutes(5) });
                 _logger.LogInformation($"Verfication token {request.Token} sent to {shackUserName} for {user.Username} verification");
-            //}
-            // else
-            // {
-            //     var message = $"Error sending SM to {shackUserName} for {discordUserName} verification.{Environment.NewLine}Status:{response.StatusCode}{Environment.NewLine}Message:{await response.Content.ReadAsStringAsync()}";
-            //     _logger.LogError(message);
-            //     throw new Exception(message);
-            // }
+            }
+            else
+            {
+                var message = $"Error sending SM to {shackUserName} for {user.Username} verification.{Environment.NewLine}Status:{response.StatusCode}{Environment.NewLine}Message:{await response.Content.ReadAsStringAsync()}";
+                _logger.LogError(message);
+                throw new Exception(message);
+            }
         }
 
         public bool MatchTokenAndRemove(SocketUser user, string token, out VerificationRequest request)
