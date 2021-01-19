@@ -21,7 +21,7 @@ namespace shacknews_discord_auth_bot
         private IConfiguration _config;
         private string[] _rolesToAssign;
         private string[] _rolesToUnasign;
-        private string _authChannelName;
+        private string[] _authChannelNames;
 
         public DiscordService(ILogger<DiscordService> logger, HttpClient httpClient, IConfiguration config, AuthService auth)
         {
@@ -50,7 +50,7 @@ namespace shacknews_discord_auth_bot
             var token = _config.GetValue<string>("DISCORD_TOKEN");
             _rolesToAssign = _config.GetValue<string>("ROLLS_TO_ASSIGN", "Shacker").Split(";");
             _rolesToUnasign = _config.GetValue<string>("ROLLS_TO_REMOVE", "Stillnewb;Guest").Split(";");
-            _authChannelName = _config.GetValue<string>("CHANNEL_NAME", "help-and-requests");
+            _authChannelNames = _config.GetValue<string>("CHANNEL_NAMES", "help-and-requests;commands").Split(";");
 
             _logger.LogInformation($"Bot v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString()} starting...");
             _logger.LogInformation($"Logging in with token {token}");
@@ -78,7 +78,7 @@ namespace shacknews_discord_auth_bot
             {
                 if (message.Author == _client.CurrentUser) return;
 
-                if (message.Channel.Name.Equals(_authChannelName))
+                if (_authChannelNames.Contains(message.Channel.Name))
                 {
                     _logger.LogTrace($"{message.Channel}: {message.Author}: {message.ToString()}");
                     if (message.Content.StartsWith("!verify "))
@@ -86,9 +86,9 @@ namespace shacknews_discord_auth_bot
                         await SendAuthMessage(message);
                         return;
                     }
-                    else if (message.Content.Equals("!help"))
+                    else if (message.Content.Equals("!verify-help"))
                     {
-                        await message.Channel.SendMessageAsync("I can do the following things:\r\n`!verify <ShacknewsUsername>` - Begin the verification process.\r\n`!help` - Show this message.");
+                        await message.Channel.SendMessageAsync("I can do the following things:\r\n`!verify <ShacknewsUsername>` - Begin the verification process.\r\n`!verify-help` - Show this message.");
                     }
                 }
                 else if (message.Channel.Name.StartsWith("@"))
