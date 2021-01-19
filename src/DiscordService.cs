@@ -49,10 +49,11 @@ namespace shacknews_discord_auth_bot
 
             var token = _config.GetValue<string>("DISCORD_TOKEN");
             _rolesToAssign = _config.GetValue<string>("ROLLS_TO_ASSIGN", "Shacker").Split(";");
-            _rolesToUnasign = _config.GetValue<string>("ROLLS_TO_REMOVE", "Stillnewb;Guest").Split(";");
+            _rolesToUnasign = _config.GetValue<string>("ROLLS_TO_REMOVE", "StillNewb;Guest").Split(";");
             _authChannelNames = _config.GetValue<string>("CHANNEL_NAMES", "help-and-requests;commands").Split(";");
 
             _logger.LogInformation($"Bot v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString()} starting...");
+            _logger.LogInformation($"Monitoring channels {String.Join(';', _authChannelNames)}");
             _logger.LogInformation($"Logging in with token {token}");
             await _client.LoginAsync(TokenType.Bot, token);
             await _client.StartAsync();
@@ -145,7 +146,7 @@ namespace shacknews_discord_auth_bot
                 var guild = request.User.Guild;
                 var rolesToAssign = guild.Roles.Where(r => _rolesToAssign.Contains(r.Name));
                 var rolesToUnasign = guild.Roles.Where(r => _rolesToUnasign.Contains(r.Name));
-                _logger.LogInformation($"Assigning roles for {message.Author}");
+                _logger.LogInformation($"Assigning roles for {message.Author} - Assign: {String.Join(';', rolesToAssign)} Unassign: {String.Join(';', rolesToUnasign)}");
                 await request.User.AddRolesAsync(rolesToAssign);
                 await request.User.RemoveRolesAsync(rolesToUnasign);
                 await message.Channel.SendMessageAsync($"Verification succeded!");
