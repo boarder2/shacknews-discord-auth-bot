@@ -82,21 +82,36 @@ namespace shacknews_discord_auth_bot
                 if (_authChannelNames.Contains(message.Channel.Name))
                 {
                     _logger.LogTrace($"{message.Channel}: {message.Author}: {message.ToString()}");
-                    if (message.Content.StartsWith("!verify "))
+                    if (message.Content.Trim().Equals("!verify"))
                     {
-                        await SendAuthMessage(message);
+                        await SendUserNameMessage(message);
                         return;
                     }
                     else if (message.Content.Equals("!verify-help"))
                     {
-                        await message.Channel.SendMessageAsync("I can do the following things:\r\n`!verify <ShacknewsUsername>` - Begin the verification process.\r\n`!verify-help` - Show this message.");
+                        await message.Channel.SendMessageAsync("I can do the following things:\r\n`!verify` - Begin the verification process.\r\n`!verify-help` - Show this message.");
                     }
                 }
                 else if (message.Channel.Name.StartsWith("@"))
                 {
-                    if (_auth.MatchTokenAndRemove(message.Author, message.Content, out var request))
+                    var session = _auth.GetVerificationRequest(message.Author);
+                    if(session != null)
                     {
-                        await ProcessValidVerification(message, request);
+                        if(session.SessionState == AuthSessionState.NeedUser)
+                        {
+                            await SendTokenMessage(message);
+                        }
+                        else if(session.SessionState == AuthSessionState.NeedToken)
+                        {
+                            if (_auth.MatchTokenAndRemove(message.Author, message.Content, out var request))
+                            {
+                                await ProcessValidVerification(message, request);
+                            }
+                            else
+                            {
+                                await message.Author.SendMessageAsync("Token did not match. Please try again.");
+                            }
+                        }
                     }
                     else
                     {
@@ -106,7 +121,7 @@ namespace shacknews_discord_auth_bot
                         }
                         else
                         {
-                            await message.Channel.SendMessageAsync($"I cannot handle requests directly. Use the `!verify` command on the server you want to verify your account with.");
+                            await message.Channel.SendMessageAsync($"I cannot handle requests directly. Use the `!verify` command on the server you want to verify your account with.\r\nIf you started a authentication session and are seeing this message, your token may have timed out.");
                         }
                     }
                 }
@@ -117,18 +132,30 @@ namespace shacknews_discord_auth_bot
             }
         }
 
-        private async Task SendAuthMessage(SocketMessage message)
+        private async Task SendUserNameMessage(SocketMessage message)
         {
             try
             {
-                var username = message.ToString().Replace("!verify ", ""); // This is sketchy but whatever.
-                if (string.IsNullOrWhiteSpace(username))
-                {
-                    await message.Channel.SendMessageAsync("Improper format for the !verify command. Use `!verify Your Shacknews Username`");
-                    return;
-                }
-                await _auth.CreateAuthToken(message.Author as IGuildUser, username);
-                await message.Author.SendMessageAsync($"SM Sent to `{username}`. Reply with your token for verification. This token is valid for 5 minutes.");
+                _auth.CreateAuthSession(message.Author as IGuildUser);
+                await message.Author.SendMessageAsync($"Starting verification session. This proces must be completed within 10 minutes.\r\n\r\nWhat is your shacknews username?");
+                _logger.LogInformation($"Starting auth session for '{message.Author}'");
+                return;
+            }
+            catch (Exception e)
+            {
+                var errorGuid = Guid.NewGuid();
+                await message.Author.SendMessageAsync($"Unable to verify, please try again later. Contact an admin with the following error code for more info `{errorGuid}`");
+                _logger.LogError(e, $"{errorGuid} - Error creating auth session for '{message.Author}'");
+            }
+        }
+
+        private async Task SendTokenMessage(SocketMessage message)
+        {
+            try
+            {
+                var username = message.Content.Trim();
+                await _auth.SetAuthSessionShackNameAndSendSM(message.Author, username);
+                await message.Author.SendMessageAsync($"Shackmessage sent to `{username}`. Messages can be found at https://www.shacknews.com/messages\r\nReply here with your token for verification.");
                 return;
             }
             catch (Exception e)
@@ -146,7 +173,7 @@ namespace shacknews_discord_auth_bot
                 var guild = request.User.Guild;
                 var rolesToAssign = guild.Roles.Where(r => _rolesToAssign.Contains(r.Name));
                 var rolesToUnasign = guild.Roles.Where(r => _rolesToUnasign.Contains(r.Name));
-                _logger.LogInformation($"Assigning roles for {message.Author} - Assign: {String.Join(';', rolesToAssign)} Unassign: {String.Join(';', rolesToUnasign)}");
+                _logger.LogInformation($"Assigning roles for {message.Author} - Guild: {request.User.Guild.Name} Assign: {String.Join(';', rolesToAssign)} Unassign: {String.Join(';', rolesToUnasign)}");
                 await request.User.AddRolesAsync(rolesToAssign);
                 await request.User.RemoveRolesAsync(rolesToUnasign);
                 await message.Channel.SendMessageAsync($"Verification succeded!");

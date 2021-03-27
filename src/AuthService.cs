@@ -23,9 +23,21 @@ namespace shacknews_discord_auth_bot
             _logger = logger;
         }
 
-        public async Task CreateAuthToken(IGuildUser user, string shackUserName)
+        public void CreateAuthSession(IGuildUser user)
         {
             var request = new VerificationRequest(user);
+            _cache.Set(new CacheItem(user.Username, request), new CacheItemPolicy() { AbsoluteExpiration = DateTime.Now.AddMinutes(10) });
+        }
+
+        public VerificationRequest GetVerificationRequest(SocketUser user)
+        {
+            var cacheToken = _cache.GetCacheItem(user.Username);
+            return cacheToken?.Value as VerificationRequest;
+        }
+
+        public async Task SetAuthSessionShackNameAndSendSM(SocketUser user, string shackUserName)
+        {
+            var request = GetVerificationRequest(user);
             var kvp = new List<KeyValuePair<string, string>> {
                 new KeyValuePair<string, string>("to", shackUserName),
                 new KeyValuePair<string, string>("subject", "Discord Verification"),
@@ -34,7 +46,7 @@ namespace shacknews_discord_auth_bot
             var response = await _httpClient.SendWithAuth(_configuration, new Uri("https://winchatty.com/v2/sendMessage"), kvp, true);
             if (response.IsSuccessStatusCode)
             {
-                _cache.Set(new CacheItem(user.Username, request), new CacheItemPolicy() { AbsoluteExpiration = DateTime.Now.AddMinutes(5) });
+                request.SessionState = AuthSessionState.NeedToken;
                 _logger.LogInformation($"Verfication token {request.Token} sent to {shackUserName} for {user.Username} verification");
             }
             else
@@ -50,9 +62,13 @@ namespace shacknews_discord_auth_bot
             var cacheToken = _cache.GetCacheItem(user.Username);
             if (cacheToken != null)
             {
-                _cache.Remove(user.Username);
                 request = (VerificationRequest)cacheToken.Value;
-                return (request.Token.ToString()).Equals(token.Trim());
+                var matched = request.Token.ToUpper().Equals(token.ToUpper().Trim());
+                if(matched)
+                {
+                    _cache.Remove(user.Username);
+                }
+                return matched;
             }
             request = null;
             return false;
