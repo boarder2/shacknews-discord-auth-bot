@@ -16,5 +16,11 @@ namespace shacknews_discord_auth_bot
             Token = Guid.NewGuid().ToString().Substring(0, 6);
             SessionState = AuthSessionState.NeedUser;
         }
+
+		public override string ToString()
+		{
+			return $"{nameof(User)}: {User}\n{nameof(Token)}: {Token}\n{nameof(ShackUserName)}: {ShackUserName}\n{nameof(SessionState)}: {SessionState}";
+		}
+	
     }
 }

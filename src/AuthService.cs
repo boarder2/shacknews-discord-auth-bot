@@ -47,13 +47,12 @@ namespace shacknews_discord_auth_bot
             if (response.IsSuccessStatusCode)
             {
                 request.SessionState = AuthSessionState.NeedToken;
-                _logger.LogInformation($"Verfication token {request.Token} sent to {shackUserName} for {user.Username} verification");
+                _logger.LogInformation("Verfication token sent with request {VerificationRequest}", request);
             }
             else
             {
-                var message = $"Error sending SM to {shackUserName} for {user.Username} verification.{Environment.NewLine}Status:{response.StatusCode}{Environment.NewLine}Message:{await response.Content.ReadAsStringAsync()}";
-                _logger.LogError(message);
-                throw new Exception(message);
+                _logger.LogError("Error sending SM with {VerificationRequest} and {SMResponse}", request, response);
+                throw new Exception("Error sending shack message");
             }
         }
 

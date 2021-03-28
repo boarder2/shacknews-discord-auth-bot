@@ -1,6 +1,7 @@
 ﻿using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace shacknews_discord_auth_bot
 {
@@ -29,6 +30,14 @@ namespace shacknews_discord_auth_bot
                     return client;
                 });
                 services.AddSingleton<AuthService>();
+            })
+            .ConfigureLogging(logging => {
+                logging.ClearProviders();
+                logging.AddJsonConsole(c => {
+                    c.IncludeScopes = true;
+                    c.UseUtcTimestamp = true;
+                    c.TimestampFormat = "O";
+                });
             });
     }
 }

@@ -17,6 +17,7 @@ namespace shacknews_discord_auth_bot
         private DiscordSocketClient _client;
         private AuthService _auth;
         private ILogger<DiscordService> _logger;
+        private IDisposable _loggerGlobalScope;
         private HttpClient _httpClient;
         private IConfiguration _config;
         private string[] _rolesToAssign;
@@ -51,10 +52,13 @@ namespace shacknews_discord_auth_bot
             _rolesToAssign = _config.GetValue<string>("ROLLS_TO_ASSIGN", "Shacker").Split(";");
             _rolesToUnasign = _config.GetValue<string>("ROLLS_TO_REMOVE", "StillNewb;Guest").Split(";");
             _authChannelNames = _config.GetValue<string>("CHANNEL_NAMES", "help-and-requests;commands").Split(";");
-
-            _logger.LogInformation($"Bot v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString()} starting...");
-            _logger.LogInformation($"Monitoring channels {String.Join(';', _authChannelNames)}");
-            _logger.LogInformation($"Logging in with token {token}");
+            _loggerGlobalScope = _logger.BeginScope("Bot Scope {BotVersion} {BotMonitorChannels} {BotRolesToAssign} {BotRolesToUnassign}",
+                System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString(),
+                _authChannelNames,
+                _rolesToAssign,
+                _rolesToUnasign);
+            
+            _logger.LogInformation("Bot starting.");
             await _client.LoginAsync(TokenType.Bot, token);
             await _client.StartAsync();
 
@@ -77,11 +81,11 @@ namespace shacknews_discord_auth_bot
         {
             try
             {
+                using var messageLoggerScope = _logger.BeginScope("Processing message scope {Author} {Content} {Channel} {Guild}", message.Author.ToString(), message.Content, message.Channel.ToString(), (message.Author as IGuildUser)?.Guild.ToString());
                 if (message.Author == _client.CurrentUser) return;
 
                 if (_authChannelNames.Contains(message.Channel.Name))
                 {
-                    _logger.LogTrace($"{message.Channel}: {message.Author}: {message.ToString()}");
                     if (message.Content.Trim().Equals("!verify"))
                     {
                         await SendUserNameMessage(message);
@@ -90,6 +94,7 @@ namespace shacknews_discord_auth_bot
                     else if (message.Content.Equals("!verify-help"))
                     {
                         await message.Channel.SendMessageAsync("I can do the following things:\r\n`!verify` - Begin the verification process.\r\n`!verify-help` - Show this message.");
+                        _logger.LogInformation("Sent help message.");
                     }
                 }
                 else if (message.Channel.Name.StartsWith("@"))
@@ -97,9 +102,11 @@ namespace shacknews_discord_auth_bot
                     var session = _auth.GetVerificationRequest(message.Author);
                     if(session != null)
                     {
+                        using var sessionLoggerScope = _logger.BeginScope("Active session {VerificationSession}", session);
                         if(session.SessionState == AuthSessionState.NeedUser)
                         {
                             await SendTokenMessage(message);
+                            _logger.LogInformation("Direct message.");
                         }
                         else if(session.SessionState == AuthSessionState.NeedToken)
                         {
@@ -110,6 +117,7 @@ namespace shacknews_discord_auth_bot
                             else
                             {
                                 await message.Author.SendMessageAsync("Token did not match. Please try again.");
+                                _logger.LogInformation("Token didn't match");
                             }
                         }
                     }
@@ -118,17 +126,19 @@ namespace shacknews_discord_auth_bot
                         if (message.ToString().Equals("!version"))
                         {
                             await message.Channel.SendMessageAsync(System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString());
+                            _logger.LogInformation("Sent version response.");
                         }
                         else
                         {
                             await message.Channel.SendMessageAsync($"I cannot handle requests directly. Use the `!verify` command on the server you want to verify your account with.\r\nIf you started a authentication session and are seeing this message, your token may have timed out.");
+                            _logger.LogInformation("Unhandled message.");
                         }
                     }
                 }
             }
             catch (Exception e)
             {
-                _logger.LogError(e, $"Error handling message '{message}' for author '{message.Author}'");
+                _logger.LogError(e, "Error handling message.");
             }
         }
 
@@ -138,14 +148,12 @@ namespace shacknews_discord_auth_bot
             {
                 _auth.CreateAuthSession(message.Author as IGuildUser);
                 await message.Author.SendMessageAsync($"Starting verification session. This proces must be completed within 10 minutes.\r\n\r\nWhat is your shacknews username?");
-                _logger.LogInformation($"Starting auth session for '{message.Author}'");
+                _logger.LogInformation($"Starting auth session.");
                 return;
             }
             catch (Exception e)
             {
-                var errorGuid = Guid.NewGuid();
-                await message.Author.SendMessageAsync($"Unable to verify, please try again later. Contact an admin with the following error code for more info `{errorGuid}`");
-                _logger.LogError(e, $"{errorGuid} - Error creating auth session for '{message.Author}'");
+                await SendErrorMessage(e, message.Author, "Unable to verify, please try again later.");
             }
         }
 
@@ -160,9 +168,7 @@ namespace shacknews_discord_auth_bot
             }
             catch (Exception e)
             {
-                var errorGuid = Guid.NewGuid();
-                await message.Author.SendMessageAsync($"Unable to verify, please try again later. Contact an admin with the following error code for more info `{errorGuid}`");
-                _logger.LogError(e, $"{errorGuid} - Error creating auth token for '{message.Author}'");
+                await SendErrorMessage(e, message.Author, "Unable to verify, please try again later.");
             }
         }
 
@@ -172,19 +178,23 @@ namespace shacknews_discord_auth_bot
             {
                 var guild = request.User.Guild;
                 var rolesToAssign = guild.Roles.Where(r => _rolesToAssign.Contains(r.Name));
-                var rolesToUnasign = guild.Roles.Where(r => _rolesToUnasign.Contains(r.Name));
-                _logger.LogInformation($"Assigning roles for {message.Author} - Guild: {request.User.Guild.Name} Assign: {String.Join(';', rolesToAssign)} Unassign: {String.Join(';', rolesToUnasign)}");
+                var rolesToUnassign = guild.Roles.Where(r => _rolesToUnasign.Contains(r.Name));
+                _logger.LogInformation("Assigning roles {RolesToAssign} {RolesToUnassign}", rolesToAssign, rolesToUnassign);
                 await request.User.AddRolesAsync(rolesToAssign);
-                await request.User.RemoveRolesAsync(rolesToUnasign);
+                await request.User.RemoveRolesAsync(rolesToUnassign);
                 await message.Channel.SendMessageAsync($"Verification succeded!");
-                _logger.LogInformation($"Verification success for {message.Author}");
+                _logger.LogInformation($"Verification success.");
             }
             catch (Exception e)
             {
-                var errorGuid = Guid.NewGuid();
-                await message.Author.SendMessageAsync($"Unable to verify, please try again later. Contact an admin with the following error code for more info `{errorGuid}`");
-                _logger.LogError(e, $"{errorGuid} - Error verifying '{message.Author}'");
+                await SendErrorMessage(e, message.Author, "Unable to verify, please try again later.");
             }
+        }
+
+        private async Task SendErrorMessage(Exception ex, SocketUser user, string message)
+        {
+            var guid = _logger.LogErrorWithGuid(ex, message);
+            await user.SendMessageAsync($"{message}\r\nContact an admin with the following error code for more info `{guid}`");
         }
     }
 }
