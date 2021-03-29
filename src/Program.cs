@@ -1,6 +1,8 @@
 ﻿using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Serilog;
+using Serilog.Formatting.Compact;
 using Microsoft.Extensions.Logging;
 
 namespace shacknews_discord_auth_bot
@@ -14,10 +16,24 @@ namespace shacknews_discord_auth_bot
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
         Host.CreateDefaultBuilder(args)
+            .ConfigureLogging(b => {
+                b.ClearProviders();
+            })
             .ConfigureServices((hostContext, services) =>
             {
                 services.AddHostedService<DiscordService>();
-                services.AddLogging();
+                services.AddSingleton<Serilog.ILogger>(p =>
+                {
+                    return new LoggerConfiguration()
+                    .Enrich.FromLogContext()
+                    .MinimumLevel.Verbose()
+                    .WriteTo.Console(new CompactJsonFormatter())
+                    .CreateLogger();
+                });
+                services.AddLogging(p => {
+                    var built = p.Services.BuildServiceProvider();
+                    p.AddSerilog(built.GetRequiredService<Serilog.ILogger>(), true);
+                });
                 services.AddSingleton<HttpClient>(provider =>
                 {
                     var handler = new HttpClientHandler();
@@ -30,14 +46,6 @@ namespace shacknews_discord_auth_bot
                     return client;
                 });
                 services.AddSingleton<AuthService>();
-            })
-            .ConfigureLogging(logging => {
-                logging.ClearProviders();
-                logging.AddJsonConsole(c => {
-                    c.IncludeScopes = true;
-                    c.UseUtcTimestamp = true;
-                    c.TimestampFormat = "O";
-                });
             });
     }
 }

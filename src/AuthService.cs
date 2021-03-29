@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+using Serilog;
 
 namespace shacknews_discord_auth_bot
 {
@@ -14,9 +14,9 @@ namespace shacknews_discord_auth_bot
     {
         private HttpClient _httpClient;
         private IConfiguration _configuration;
-        private ILogger<AuthService> _logger;
+        private ILogger _logger;
         private MemoryCache _cache = MemoryCache.Default;
-        public AuthService(HttpClient httpClient, IConfiguration configuration, ILogger<AuthService> logger)
+        public AuthService(HttpClient httpClient, IConfiguration configuration, ILogger logger)
         {
             _httpClient = httpClient;
             _configuration = configuration;
@@ -47,11 +47,11 @@ namespace shacknews_discord_auth_bot
             if (response.IsSuccessStatusCode)
             {
                 request.SessionState = AuthSessionState.NeedToken;
-                _logger.LogInformation("Verfication token sent with request {VerificationRequest}", request);
+                _logger.Information("Verfication token sent with request {VerificationRequest}", request);
             }
             else
             {
-                _logger.LogError("Error sending SM with {VerificationRequest} and {SMResponse}", request, response);
+                _logger.Error("Error sending SM with {VerificationRequest} and {SMResponse}", request, response);
                 throw new Exception("Error sending shack message");
             }
         }

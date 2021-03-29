@@ -8,7 +8,8 @@ using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using Serilog;
+using Serilog.Context;
 
 namespace shacknews_discord_auth_bot
 {
@@ -16,15 +17,14 @@ namespace shacknews_discord_auth_bot
     {
         private DiscordSocketClient _client;
         private AuthService _auth;
-        private ILogger<DiscordService> _logger;
-        private IDisposable _loggerGlobalScope;
+        private ILogger _logger;
         private HttpClient _httpClient;
         private IConfiguration _config;
         private string[] _rolesToAssign;
         private string[] _rolesToUnasign;
         private string[] _authChannelNames;
 
-        public DiscordService(ILogger<DiscordService> logger, HttpClient httpClient, IConfiguration config, AuthService auth)
+        public DiscordService(ILogger logger, HttpClient httpClient, IConfiguration config, AuthService auth)
         {
             _logger = logger;
             _httpClient = httpClient;
@@ -44,7 +44,7 @@ namespace shacknews_discord_auth_bot
             _client.MessageReceived += GotAMessage;
             _client.Ready += () =>
             {
-                _logger.LogInformation($"Logged in as {_client.CurrentUser.Username}");
+                _logger.Information($"Logged in as {_client.CurrentUser.Username}");
                 return Task.CompletedTask;
             };
 
@@ -52,13 +52,13 @@ namespace shacknews_discord_auth_bot
             _rolesToAssign = _config.GetValue<string>("ROLLS_TO_ASSIGN", "Shacker").Split(";");
             _rolesToUnasign = _config.GetValue<string>("ROLLS_TO_REMOVE", "StillNewb;Guest").Split(";");
             _authChannelNames = _config.GetValue<string>("CHANNEL_NAMES", "help-and-requests;commands").Split(";");
-            _loggerGlobalScope = _logger.BeginScope("Bot Scope {BotVersion} {BotMonitorChannels} {BotRolesToAssign} {BotRolesToUnassign}",
-                System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString(),
-                _authChannelNames,
-                _rolesToAssign,
-                _rolesToUnasign);
-            
-            _logger.LogInformation("Bot starting.");
+
+            LogContext.PushProperty("BotVersion", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString());
+            LogContext.PushProperty("BotMonitorChannels", _authChannelNames, true);
+            LogContext.PushProperty("BotRolesToAssign", _rolesToAssign, true);
+            LogContext.PushProperty("BotRolesToUnassign", _rolesToUnasign, true);
+
+            _logger.Information("Bot starting.");
             await _client.LoginAsync(TokenType.Bot, token);
             await _client.StartAsync();
 
@@ -73,72 +73,79 @@ namespace shacknews_discord_auth_bot
 
         private Task Log(LogMessage msg)
         {
-            _logger.LogInformation(msg.ToString());
+            _logger.Information(msg.ToString());
             return Task.CompletedTask;
         }
 
         private async Task GotAMessage(SocketMessage message)
         {
-            try
+            using (LogContext.PushProperty("Author", message.Author.ToString()))
+            using (LogContext.PushProperty("Content", message.Content))
+            using (LogContext.PushProperty("Channel", message.Channel.ToString()))
+            using (LogContext.PushProperty("Guild", (message.Author as IGuildUser)?.Guild.ToString()))
             {
-                using var messageLoggerScope = _logger.BeginScope("Processing message scope {Author} {Content} {Channel} {Guild}", message.Author.ToString(), message.Content, message.Channel.ToString(), (message.Author as IGuildUser)?.Guild.ToString());
-                if (message.Author == _client.CurrentUser) return;
+                try
+                {
+                    if (message.Author == _client.CurrentUser) return;
 
-                if (_authChannelNames.Contains(message.Channel.Name))
-                {
-                    if (message.Content.Trim().Equals("!verify"))
+                    if (_authChannelNames.Contains(message.Channel.Name))
                     {
-                        await SendUserNameMessage(message);
-                        return;
-                    }
-                    else if (message.Content.Equals("!verify-help"))
-                    {
-                        await message.Channel.SendMessageAsync("I can do the following things:\r\n`!verify` - Begin the verification process.\r\n`!verify-help` - Show this message.");
-                        _logger.LogInformation("Sent help message.");
-                    }
-                }
-                else if (message.Channel.Name.StartsWith("@"))
-                {
-                    var session = _auth.GetVerificationRequest(message.Author);
-                    if(session != null)
-                    {
-                        using var sessionLoggerScope = _logger.BeginScope("Active session {VerificationSession}", session);
-                        if(session.SessionState == AuthSessionState.NeedUser)
+                        if (message.Content.Trim().Equals("!verify"))
                         {
-                            await SendTokenMessage(message);
-                            _logger.LogInformation("Direct message.");
+                            await SendUserNameMessage(message);
+                            return;
                         }
-                        else if(session.SessionState == AuthSessionState.NeedToken)
+                        else if (message.Content.Equals("!verify-help"))
                         {
-                            if (_auth.MatchTokenAndRemove(message.Author, message.Content, out var request))
-                            {
-                                await ProcessValidVerification(message, request);
-                            }
-                            else
-                            {
-                                await message.Author.SendMessageAsync("Token did not match. Please try again.");
-                                _logger.LogInformation("Token didn't match");
-                            }
+                            await message.Channel.SendMessageAsync("I can do the following things:\r\n`!verify` - Begin the verification process.\r\n`!verify-help` - Show this message.");
+                            _logger.Information("Sent help message.");
                         }
                     }
-                    else
+                    else if (message.Channel.Name.StartsWith("@"))
                     {
-                        if (message.ToString().Equals("!version"))
+                        var session = _auth.GetVerificationRequest(message.Author);
+                        if (session != null)
                         {
-                            await message.Channel.SendMessageAsync(System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString());
-                            _logger.LogInformation("Sent version response.");
+                            using (LogContext.PushProperty("VerificationSession", session, true))
+                            {
+                                if (session.SessionState == AuthSessionState.NeedUser)
+                                {
+                                    await SendTokenMessage(message);
+                                    _logger.Information("Direct message.");
+                                }
+                                else if (session.SessionState == AuthSessionState.NeedToken)
+                                {
+                                    if (_auth.MatchTokenAndRemove(message.Author, message.Content, out var request))
+                                    {
+                                        await ProcessValidVerification(message, request);
+                                    }
+                                    else
+                                    {
+                                        await message.Author.SendMessageAsync("Token did not match. Please try again.");
+                                        _logger.Information("Token didn't match");
+                                    }
+                                }
+                            }
                         }
                         else
                         {
-                            await message.Channel.SendMessageAsync($"I cannot handle requests directly. Use the `!verify` command on the server you want to verify your account with.\r\nIf you started a authentication session and are seeing this message, your token may have timed out.");
-                            _logger.LogInformation("Unhandled message.");
+                            if (message.ToString().Equals("!version"))
+                            {
+                                await message.Channel.SendMessageAsync(System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString());
+                                _logger.Information("Sent version response.");
+                            }
+                            else
+                            {
+                                await message.Channel.SendMessageAsync($"I cannot handle requests directly. Use the `!verify` command on the server you want to verify your account with.\r\nIf you started a authentication session and are seeing this message, your token may have timed out.");
+                                _logger.Information("Unhandled message.");
+                            }
                         }
                     }
                 }
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, "Error handling message.");
+                catch (Exception e)
+                {
+                    _logger.Error(e, "Error handling message.");
+                }
             }
         }
 
@@ -148,7 +155,7 @@ namespace shacknews_discord_auth_bot
             {
                 _auth.CreateAuthSession(message.Author as IGuildUser);
                 await message.Author.SendMessageAsync($"Starting verification session. This proces must be completed within 10 minutes.\r\n\r\nWhat is your shacknews username?");
-                _logger.LogInformation($"Starting auth session.");
+                _logger.Information($"Starting auth session.");
                 return;
             }
             catch (Exception e)
@@ -179,11 +186,11 @@ namespace shacknews_discord_auth_bot
                 var guild = request.User.Guild;
                 var rolesToAssign = guild.Roles.Where(r => _rolesToAssign.Contains(r.Name));
                 var rolesToUnassign = guild.Roles.Where(r => _rolesToUnasign.Contains(r.Name));
-                _logger.LogInformation("Assigning roles {RolesToAssign} {RolesToUnassign}", rolesToAssign, rolesToUnassign);
+                _logger.Information("Assigning roles {RolesToAssign} {RolesToUnassign}", rolesToAssign, rolesToUnassign);
                 await request.User.AddRolesAsync(rolesToAssign);
                 await request.User.RemoveRolesAsync(rolesToUnassign);
                 await message.Channel.SendMessageAsync($"Verification succeded!");
-                _logger.LogInformation($"Verification success.");
+                _logger.Information($"Verification success.");
             }
             catch (Exception e)
             {
