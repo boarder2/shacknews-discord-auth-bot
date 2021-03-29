@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Context;
+using Serilog.Core.Enrichers;
 
 namespace shacknews_discord_auth_bot
 {
@@ -18,6 +19,7 @@ namespace shacknews_discord_auth_bot
         private DiscordSocketClient _client;
         private AuthService _auth;
         private ILogger _logger;
+        private IDisposable _globalLogContext;
         private HttpClient _httpClient;
         private IConfiguration _config;
         private string[] _rolesToAssign;
@@ -53,10 +55,12 @@ namespace shacknews_discord_auth_bot
             _rolesToUnasign = _config.GetValue<string>("ROLLS_TO_REMOVE", "StillNewb;Guest").Split(";");
             _authChannelNames = _config.GetValue<string>("CHANNEL_NAMES", "help-and-requests;commands").Split(";");
 
-            LogContext.PushProperty("BotVersion", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString());
-            LogContext.PushProperty("BotMonitorChannels", _authChannelNames, true);
-            LogContext.PushProperty("BotRolesToAssign", _rolesToAssign, true);
-            LogContext.PushProperty("BotRolesToUnassign", _rolesToUnasign, true);
+            _globalLogContext = LogContext.Push(
+                new PropertyEnricher("BotVersion", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString()),
+                new PropertyEnricher("BotMonitorChannels", _authChannelNames, true),
+                new PropertyEnricher("BotRolesToAssign", _rolesToAssign, true),
+                new PropertyEnricher("BotRolesToUnassign", _rolesToUnasign, true)
+            );
 
             _logger.Information("Bot starting.");
             await _client.LoginAsync(TokenType.Bot, token);
@@ -79,10 +83,12 @@ namespace shacknews_discord_auth_bot
 
         private async Task GotAMessage(SocketMessage message)
         {
-            using (LogContext.PushProperty("Author", message.Author.ToString()))
-            using (LogContext.PushProperty("Content", message.Content))
-            using (LogContext.PushProperty("Channel", message.Channel.ToString()))
-            using (LogContext.PushProperty("Guild", (message.Author as IGuildUser)?.Guild.ToString()))
+            using(LogContext.Push(
+                new PropertyEnricher("Author", message.Author.ToString()),
+                new PropertyEnricher("Content", message.Content),
+                new PropertyEnricher("Channel", message.Channel.ToString()),
+                new PropertyEnricher("Guild", (message.Author as IGuildUser)?.Guild.ToString())
+            ))
             {
                 try
                 {
@@ -106,8 +112,8 @@ namespace shacknews_discord_auth_bot
                         var session = _auth.GetVerificationRequest(message.Author);
                         if (session != null)
                         {
-                            using (LogContext.PushProperty("VerificationSession", session, true))
-                            {
+                            //using (LogContext.Push(new PropertyEnricher("VerificationSession", session, true)))
+                            //{
                                 if (session.SessionState == AuthSessionState.NeedUser)
                                 {
                                     await SendTokenMessage(message);
@@ -122,10 +128,10 @@ namespace shacknews_discord_auth_bot
                                     else
                                     {
                                         await message.Author.SendMessageAsync("Token did not match. Please try again.");
-                                        _logger.Information("Token didn't match");
+                                        _logger.Information("Token didn't match {VerificationSession}", session);
                                     }
                                 }
-                            }
+                            //}
                         }
                         else
                         {

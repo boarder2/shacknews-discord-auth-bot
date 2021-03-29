@@ -16,23 +16,18 @@ namespace shacknews_discord_auth_bot
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
         Host.CreateDefaultBuilder(args)
-            .ConfigureLogging(b => {
-                b.ClearProviders();
-            })
             .ConfigureServices((hostContext, services) =>
             {
-                services.AddHostedService<DiscordService>();
-                services.AddSingleton<Serilog.ILogger>(p =>
-                {
-                    return new LoggerConfiguration()
+                var logger = new LoggerConfiguration()
                     .Enrich.FromLogContext()
                     .MinimumLevel.Verbose()
                     .WriteTo.Console(new CompactJsonFormatter())
                     .CreateLogger();
-                });
+                services.AddHostedService<DiscordService>();
+                services.AddSingleton<Serilog.ILogger>(logger);
                 services.AddLogging(p => {
-                    var built = p.Services.BuildServiceProvider();
-                    p.AddSerilog(built.GetRequiredService<Serilog.ILogger>(), true);
+                    p.ClearProviders();
+                    p.AddSerilog(logger);
                 });
                 services.AddSingleton<HttpClient>(provider =>
                 {
