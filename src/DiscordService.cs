@@ -83,7 +83,7 @@ namespace shacknews_discord_auth_bot
 
         private async Task GotAMessage(SocketMessage message)
         {
-            using(LogContext.Push(
+            using (LogContext.Push(
                 new PropertyEnricher("Author", message.Author.ToString()),
                 new PropertyEnricher("Content", message.Content),
                 new PropertyEnricher("Channel", message.Channel.ToString()),
@@ -98,7 +98,16 @@ namespace shacknews_discord_auth_bot
                     {
                         if (message.Content.Trim().Equals("!verify"))
                         {
-                            await SendUserNameMessage(message);
+                            try
+                            {
+                                await SendUserNameMessage(message);
+                            }
+                            catch (Exception ex)
+                            {
+                                var guid = _logger.LogErrorWithGuid(ex, "Error sending initiation message.");
+                                await message.Channel.SendMessageAsync($"Sorry, <@{message.Author.Id}>.  I can't start an auth session with you for some reason.  Make sure you don't have direct messaging blocked for this server and try again.\r\nIf you continue to have problems contact an admin with the following error code `{guid}`.");
+                                throw;
+                            }
                             return;
                         }
                         else if (message.Content.Equals("!verify-help"))
@@ -114,23 +123,23 @@ namespace shacknews_discord_auth_bot
                         {
                             //using (LogContext.Push(new PropertyEnricher("VerificationSession", session, true)))
                             //{
-                                if (session.SessionState == AuthSessionState.NeedUser)
+                            if (session.SessionState == AuthSessionState.NeedUser)
+                            {
+                                await SendTokenMessage(message);
+                                _logger.Information("Direct message.");
+                            }
+                            else if (session.SessionState == AuthSessionState.NeedToken)
+                            {
+                                if (_auth.MatchTokenAndRemove(message.Author, message.Content, out var request))
                                 {
-                                    await SendTokenMessage(message);
-                                    _logger.Information("Direct message.");
+                                    await ProcessValidVerification(message, request);
                                 }
-                                else if (session.SessionState == AuthSessionState.NeedToken)
+                                else
                                 {
-                                    if (_auth.MatchTokenAndRemove(message.Author, message.Content, out var request))
-                                    {
-                                        await ProcessValidVerification(message, request);
-                                    }
-                                    else
-                                    {
-                                        await message.Author.SendMessageAsync("Token did not match. Please try again.");
-                                        _logger.Information("Token didn't match {VerificationSession}", session);
-                                    }
+                                    await message.Author.SendMessageAsync("Token did not match. Please try again.");
+                                    _logger.Information("Token didn't match {VerificationSession}", session);
                                 }
+                            }
                             //}
                         }
                         else
