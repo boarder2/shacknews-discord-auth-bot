@@ -72,5 +72,10 @@ namespace shacknews_discord_auth_bot
             request = null;
             return false;
         }
+
+        public void ClearSessionForUser(SocketUser user)
+        {
+            _cache.Remove(user.Username);
+        }
     }
 }

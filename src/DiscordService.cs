@@ -175,6 +175,7 @@ namespace shacknews_discord_auth_bot
             }
             catch (Exception e)
             {
+                _auth.ClearSessionForUser(message.Author);
                 await SendErrorMessage(e, message.Author, "Unable to verify, please try again later.");
             }
         }
