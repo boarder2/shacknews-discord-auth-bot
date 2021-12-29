@@ -40,7 +40,7 @@ namespace shacknews_discord_auth_bot
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            _client = new DiscordSocketClient();
+            _client = new DiscordSocketClient(new DiscordSocketConfig() { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildIntegrations | GatewayIntents.DirectMessages | GatewayIntents.GuildMessages });
 
             _client.Log += Log;
             _client.MessageReceived += GotAMessage;
@@ -65,9 +65,6 @@ namespace shacknews_discord_auth_bot
             _logger.Information("Bot starting.");
             await _client.LoginAsync(TokenType.Bot, token);
             await _client.StartAsync();
-
-            // Block this task until the program is closed.
-            await Task.Delay(-1);
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
@@ -92,11 +89,19 @@ namespace shacknews_discord_auth_bot
             {
                 try
                 {
-                    if (message.Author == _client.CurrentUser) return;
+                    if (message.Author.Id == _client.CurrentUser.Id) return;
 
                     if (_authChannelNames.Contains(message.Channel.Name))
                     {
-                        if (message.Content.Trim().Equals("!verify"))
+                        var trimmed = message.Content.Trim();
+                        if (trimmed.StartsWith("!verify-help"))
+                        {
+                            await message.Channel.SendMessageAsync("I can do the following things:\r\n`!verify` - Begin the verification process.\r\n`!verify-help` - Show this message.");
+                            _logger.Information("Sent help message.");
+                        }
+                        // Better thing to do would be get the role for @ShackMe and use that
+                        // But at this point I'm not trying very hard to make this robust or maintainable so we'll just do it the easy way. HARD CODE!
+                        else if (trimmed.StartsWith("!verify") || message.CleanContent.Contains("@ShackMe"))
                         {
                             try
                             {
@@ -109,11 +114,6 @@ namespace shacknews_discord_auth_bot
                                 throw;
                             }
                             return;
-                        }
-                        else if (message.Content.Equals("!verify-help"))
-                        {
-                            await message.Channel.SendMessageAsync("I can do the following things:\r\n`!verify` - Begin the verification process.\r\n`!verify-help` - Show this message.");
-                            _logger.Information("Sent help message.");
                         }
                     }
                     else if (message.Channel.Name.StartsWith("@"))

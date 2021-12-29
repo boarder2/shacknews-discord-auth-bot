@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Formatting.Compact;
 using Microsoft.Extensions.Logging;
+using System.Threading.Tasks;
 
 namespace shacknews_discord_auth_bot
 {
@@ -12,6 +13,8 @@ namespace shacknews_discord_auth_bot
         public static void Main(string[] args)
         {
             CreateHostBuilder(args).Build().RunAsync();
+            // Block this task until the program is closed.
+            Task.Delay(-1).GetAwaiter().GetResult();
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
@@ -25,7 +28,8 @@ namespace shacknews_discord_auth_bot
                     .CreateLogger();
                 services.AddHostedService<DiscordService>();
                 services.AddSingleton<Serilog.ILogger>(logger);
-                services.AddLogging(p => {
+                services.AddLogging(p =>
+                {
                     p.ClearProviders();
                     p.AddSerilog(logger);
                 });
