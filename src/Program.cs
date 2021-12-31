@@ -12,9 +12,7 @@ namespace shacknews_discord_auth_bot
     {
         public static void Main(string[] args)
         {
-            CreateHostBuilder(args).Build().RunAsync();
-            // Block this task until the program is closed.
-            Task.Delay(-1).GetAwaiter().GetResult();
+            CreateHostBuilder(args).Build().RunAsync().GetAwaiter().GetResult();
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>

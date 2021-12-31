@@ -67,9 +67,11 @@ namespace shacknews_discord_auth_bot
             await _client.StartAsync();
         }
 
-        public Task StopAsync(CancellationToken cancellationToken)
+        public async Task StopAsync(CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            await _client.LogoutAsync();
+            await _client.StopAsync();
+            _client.Dispose();
         }
 
         private Task Log(LogMessage msg)
