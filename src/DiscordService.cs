@@ -101,7 +101,7 @@ namespace shacknews_discord_auth_bot
                         }
                         // Better thing to do would be get the role for @ShackMe and use that
                         // But at this point I'm not trying very hard to make this robust or maintainable so we'll just do it the easy way. HARD CODE!
-                        else if (trimmed.StartsWith("!verify") || message.CleanContent.Contains("@ShackMe"))
+                        else if (trimmed.StartsWith("!verify") || message.MentionedRoles.Any(r => r.Name == "ShackMe"))
                         {
                             try
                             {
