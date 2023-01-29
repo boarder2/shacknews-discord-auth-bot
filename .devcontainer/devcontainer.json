@@ -21,8 +21,10 @@
 		"ms-dotnettools.csharp",
 		"mutantdino.resourcemonitor"
 	],
-	"shutdownAction":  "stopContainer"
-
+	"shutdownAction":  "stopContainer",
+	"remoteEnv": {
+		"DISCORD_TOKEN": "${localEnv:SAV_DISCORD_TOKEN}"
+	}
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [5000, 5001],
 
