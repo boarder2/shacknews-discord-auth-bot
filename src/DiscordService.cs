@@ -40,7 +40,7 @@ namespace shacknews_discord_auth_bot
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            _client = new DiscordSocketClient(new DiscordSocketConfig() { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildIntegrations | GatewayIntents.DirectMessages | GatewayIntents.GuildMessages });
+            _client = new DiscordSocketClient(new DiscordSocketConfig() { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildIntegrations | GatewayIntents.DirectMessages | GatewayIntents.GuildMessages | GatewayIntents.MessageContent });
 
             _client.Log += Log;
             _client.MessageReceived += GotAMessage;
