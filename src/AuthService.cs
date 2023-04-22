@@ -23,10 +23,10 @@ namespace shacknews_discord_auth_bot
             _logger = logger;
         }
 
-        public void CreateAuthSession(IGuildUser user)
+        public void CreateAuthSession(SocketMessage message)
         {
-            var request = new VerificationRequest(user);
-            _cache.Set(new CacheItem(user.Username, request), new CacheItemPolicy() { AbsoluteExpiration = DateTime.Now.AddMinutes(10) });
+            var request = new VerificationRequest(message);
+            _cache.Set(new CacheItem(message.Author.Username, request), new CacheItemPolicy() { AbsoluteExpiration = DateTime.Now.AddMinutes(10) });
         }
 
         public VerificationRequest GetVerificationRequest(SocketUser user)
