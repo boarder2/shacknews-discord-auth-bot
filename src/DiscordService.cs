@@ -46,6 +46,11 @@ public class DiscordService(ILogger<DiscordService> _logger, IConfiguration _con
 		_client.Dispose();
 	}
 
+	public ConnectionState GetConnectionState()
+	{
+		return _client?.ConnectionState ?? ConnectionState.Disconnected;
+	}
+
 	private Task Log(LogMessage msg)
 	{
 		_logger.LogInformation(msg.ToString());

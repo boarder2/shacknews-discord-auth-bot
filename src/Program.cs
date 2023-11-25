@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
 using Serilog.Formatting.Compact;
 using shacknews_discord_auth_bot;
+using shacknews_discord_auth_bot.Health;
 
 Log.Logger = new LoggerConfiguration()
 					.Enrich.FromLogContext()
@@ -11,7 +13,11 @@ Log.Logger = new LoggerConfiguration()
 
 var builder = Host.CreateApplicationBuilder(args);
 
-builder.Services.AddHostedService<DiscordService>();
+// Register as singleton so we can resolve it in health checks
+builder.Services.AddSingleton<DiscordService>();
+// Use the previously registered singleton - If we just add it here, it can't be resolved by the health check.
+builder.Services.AddHostedService(provider => provider.GetRequiredService<DiscordService>());
+
 builder.Logging.ClearProviders();
 builder.Services.AddSerilog();
 
@@ -28,6 +34,9 @@ builder.Services.AddSingleton<HttpClient>(provider =>
 });
 
 builder.Services.AddSingleton<AuthService>();
+builder.Services.AddHealthChecks()
+	.AddCheck<DiscordHealth>("Discord Health");
+builder.Services.AddSingleton<IHealthCheckPublisher, Publisher>();
 
 var app = builder.Build();
 await app.RunAsync();

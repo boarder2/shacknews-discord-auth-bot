@@ -13,5 +13,7 @@ RUN apk --no-cache add icu-libs
 WORKDIR /dotnetapp
 
 COPY --from=build /build/src/bin/Release/net8.0/linux-musl-x64/publish/ .
+ENV DOCKER_HEALTHCHECK_FILEPATH=/dotnetapp/health.txt
 
+HEALTHCHECK CMD test $(find $DOCKER_HEALTHCHECK_FILEPATH -mmin -3 | wc -l) -gt 0
 ENTRYPOINT ["dotnet", "shacknews-discord-auth-bot.dll"]
