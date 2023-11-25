@@ -1,48 +1,33 @@
-﻿using System.Net.Http;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Serilog.Formatting.Compact;
-using Microsoft.Extensions.Logging;
-using System.Threading.Tasks;
+using shacknews_discord_auth_bot;
 
-namespace shacknews_discord_auth_bot
+Log.Logger = new LoggerConfiguration()
+					.Enrich.FromLogContext()
+					.MinimumLevel.Verbose()
+					.WriteTo.Console(new CompactJsonFormatter())
+					.CreateLogger();
+
+var builder = Host.CreateApplicationBuilder(args);
+
+builder.Services.AddHostedService<DiscordService>();
+builder.Logging.ClearProviders();
+builder.Services.AddSerilog();
+
+builder.Services.AddSingleton<HttpClient>(provider =>
 {
-    class Program
-    {
-        public static void Main(string[] args)
-        {
-            CreateHostBuilder(args).Build().RunAsync().GetAwaiter().GetResult();
-        }
+	var handler = new HttpClientHandler();
+	if (handler.SupportsAutomaticDecompression)
+	{
+		handler.AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate;
+	}
+	var client = new HttpClient(handler);
+	client.DefaultRequestHeaders.UserAgent.ParseAdd("Shacknews Discord Auth Bot");
+	return client;
+});
 
-        public static IHostBuilder CreateHostBuilder(string[] args) =>
-        Host.CreateDefaultBuilder(args)
-            .ConfigureServices((hostContext, services) =>
-            {
-                var logger = new LoggerConfiguration()
-                    .Enrich.FromLogContext()
-                    .MinimumLevel.Verbose()
-                    .WriteTo.Console(new CompactJsonFormatter())
-                    .CreateLogger();
-                services.AddHostedService<DiscordService>();
-                services.AddSingleton<Serilog.ILogger>(logger);
-                services.AddLogging(p =>
-                {
-                    p.ClearProviders();
-                    p.AddSerilog(logger);
-                });
-                services.AddSingleton<HttpClient>(provider =>
-                {
-                    var handler = new HttpClientHandler();
-                    if (handler.SupportsAutomaticDecompression)
-                    {
-                        handler.AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate;
-                    }
-                    var client = new HttpClient(handler);
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("Shacknews Discord Auth Bot");
-                    return client;
-                });
-                services.AddSingleton<AuthService>();
-            });
-    }
-}
+builder.Services.AddSingleton<AuthService>();
+
+var app = builder.Build();
+await app.RunAsync();

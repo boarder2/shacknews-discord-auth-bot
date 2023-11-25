@@ -1,15 +1,11 @@
-using System;
-using Serilog;
+namespace shacknews_discord_auth_bot;
 
-namespace shacknews_discord_auth_bot
+public static class LoggerExtensions
 {
-	public static class LoggerExtensions
+	public static Guid LogErrorWithGuid<T>(this ILogger<T> logger, Exception exception, string message)
 	{
-		public static Guid LogErrorWithGuid(this ILogger logger, Exception exception, string message, params object[] args)
-		{
-			var guid = Guid.NewGuid();
-			logger.Error(exception, $"{{ErrorGuid}} {message}", guid, args);
-			return guid;
-		}
+		var guid = Guid.NewGuid();
+		logger.LogError(exception, "{ErrorGuid} {message}", guid, message);
+		return guid;
 	}
 }

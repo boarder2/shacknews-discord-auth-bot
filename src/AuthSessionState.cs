@@ -1,8 +1,7 @@
-namespace shacknews_discord_auth_bot
+namespace shacknews_discord_auth_bot;
+
+public enum AuthSessionState
 {
-	public enum AuthSessionState
-	{
-		NeedUser,
-		NeedToken
-	}
+	NeedUser,
+	NeedToken
 }
