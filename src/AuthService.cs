@@ -6,16 +6,26 @@ public class AuthService(HttpClient _httpClient, IConfiguration _configuration, 
 {
 	private readonly MemoryCache _cache = MemoryCache.Default;
 
-    public void CreateAuthSession(SocketMessage message)
+	public void CreateAuthSession(SocketMessage message)
 	{
 		var request = new VerificationRequest(message);
-		_cache.Set(new CacheItem(message.Author.Username, request), new CacheItemPolicy() { AbsoluteExpiration = DateTime.Now.AddMinutes(10) });
+		_cache.Set(new CacheItem(message.Author.Username, request), new CacheItemPolicy() { AbsoluteExpiration = DateTimeOffset.UtcNow.AddMinutes(10) });
 	}
 
 	public VerificationRequest GetVerificationRequest(SocketUser user)
 	{
 		var cacheToken = _cache.GetCacheItem(user.Username);
-		return cacheToken?.Value as VerificationRequest;
+		var req = cacheToken?.Value as VerificationRequest;
+		if (req == null)
+		{
+			_logger.LogWarning("Session not found for {userName}", user.Username);
+		}
+		else
+		{
+			_logger.LogInformation("Session found for {userName} with {token}", user.Username, req.Token);
+		}
+
+		return req;
 	}
 
 	public async Task SetAuthSessionShackNameAndSendSM(SocketUser user, string shackUserName)
