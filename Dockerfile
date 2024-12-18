@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /build
 
 ARG BUILD_VERSION="1.0.0.0"
@@ -7,7 +7,7 @@ COPY . .
 
 RUN dotnet publish -c Release src/shacknews-discord-auth-bot.csproj -o /build/output /p:BuildVersion=${BUILD_VERSION}
 
-FROM mcr.microsoft.com/dotnet/runtime:8.0-alpine
+FROM mcr.microsoft.com/dotnet/runtime:9.0-alpine
 
 RUN apk --no-cache add icu-libs
 WORKDIR /dotnetapp
